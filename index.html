@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsightLLM AI — Agentic Business Intelligence Workspace</title>
+    <!-- PDF.js for client-side PDF parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- Mammoth.js for client-side DOCX parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-color: #fafafa;
+            --panel-bg: #ffffff;
+            --text-main: #09090b;
+            --text-muted: #71717a;
+            --border-color: #e4e4e7;
+            --accent-color: #00b171;
+            --accent-hover: #059669;
+            --danger: #ef4444;
+            --header-bg: #ffffff;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+            --agent-bg: #f4f4f5;
+            --user-msg-bg: #f4f4f5;
+            --bot-msg-bg: #ffffff;
+            --radius: 8px;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #09090b;
+            --panel-bg: #09090b;
+            --text-main: #fafafa;
+            --text-muted: #a1a1aa;
+            --border-color: #27272a;
+            --accent-color: #00b171;
+            --accent-hover: #059669;
+            --header-bg: #09090b;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            --agent-bg: #18181b;
+            --user-msg-bg: #18181b;
+            --bot-msg-bg: #09090b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        /* --- Header & Navigation --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-icon {
+            width: 14px;
+            height: 14px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .api-input-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 4px 12px;
+        }
+
+        .api-input-container input {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            outline: none;
+            width: 250px;
+            font-size: 0.85rem;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
+            transition: all 0.3s;
+        }
+
+        .status-indicator.connected {
+            background-color: var(--accent-color);
+            box-shadow: 0 0 8px var(--accent-color);
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .icon-btn:hover {
+            background: var(--agent-bg);
+        }
+
+        /* --- STREAMING_CHUNK:Layout Panel Specifications... --- */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            width: 100vw;
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Rigid Width Parameters to avoid sidebar squeeze */
+        .col-left {
+            width: 300px;
+            min-width: 300px;
+            max-width: 300px;
+            flex-shrink: 0;
+        }
+
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+        }
+
+        .upload-area {
+            margin: 16px;
+            border: 1px dashed var(--border-color);
+            border-radius: var(--radius);
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--bg-color);
+        }
+
+        .upload-area:hover {
+            border-color: var(--accent-color);
+            background: rgba(16, 177, 113, 0.02);
+        }
+
+        .upload-area input {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+        }
+
+        .doc-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 16px 16px 16px;
+        }
+
+        .doc-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            margin-bottom: 8px;
+            background: var(--bg-color);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .doc-item:hover {
+            border-color: var(--accent-color);
+        }
+
+        .doc-item.active-view {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 1px var(--accent-color);
+        }
+
+        .doc-checkbox {
+            margin-right: 12px;
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent-color);
+        }
+
+        .doc-info {
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .doc-name {
+            font-size: 0.85rem;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .doc-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .doc-delete {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .doc-delete:hover {
+            color: var(--danger);
+            background: rgba(239, 68, 68, 0.05);
+        }
+
+        /* --- Middle Column: PDF Viewer / Dashboard --- */
+        .col-center {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-color);
+            overflow: hidden;
+        }
+
+        .center-tabs {
+            display: flex;
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 16px;
+        }
+
+        .tab {
+            padding: 16px 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: var(--text-main);
+            border-bottom-color: var(--text-main);
+        }
+
+        .tab-content {
+            flex: 1;
+            display: none;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .tab-content.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 24px;
+        }
+
+        #pdf-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+
+        #html-viewer {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            background: var(--panel-bg);
+            padding: 32px;
+            display: none;
+        }
+
+        /* Dashboard Styles */
+        .dashboard-content {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .kpi-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 16px;
+            box-shadow: var(--shadow);
+        }
+
+        .kpi-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .insight-section {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow);
+        }
+
+        .insight-section h3 {
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* --- STREAMING_CHUNK:Designing Chat Interfaces... --- */
+        .col-right {
+            width: 450px;
+            min-width: 450px;
+            max-width: 450px;
+            border-left: 1px solid var(--border-color);
+            border-right: none;
+            flex-shrink: 0;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            align-items: flex-end;
+        }
+
+        .message.bot {
+            align-self: flex-start;
+        }
+
+        .msg-bubble {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            box-shadow: var(--shadow);
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        .message.user .msg-bubble {
+            background-color: var(--user-msg-bg);
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.bot .msg-bubble {
+            background-color: var(--bot-msg-bg);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 2px;
+        }
+
+        .agent-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .agent-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 3px 8px;
+            background-color: var(--agent-bg);
+            color: var(--text-main);
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .msg-bubble h3, .msg-bubble h4 { margin-top: 12px; margin-bottom: 6px; font-weight: 600; }
+        .msg-bubble p { margin-bottom: 10px; }
+        .msg-bubble p:last-child { margin-bottom: 0; }
+        .msg-bubble ul, .msg-bubble ol { margin-left: 18px; margin-bottom: 10px; }
+        .msg-bubble li { margin-bottom: 4px; }
+        .msg-bubble strong { font-weight: 600; }
+
+        .citation {
+            font-size: 0.75rem;
+            background: var(--bg-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: var(--text-muted);
+            border: 1px solid var(--border-color);
+            display: inline-block;
+            margin-top: 6px;
+            cursor: pointer;
+        }
+
+        .chat-input-area {
+            padding: 16px;
+            background-color: var(--panel-bg);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .quick-actions {
+            display: flex;
+            overflow-x: auto;
+            gap: 8px;
+            padding-bottom: 12px;
+            scrollbar-width: none;
+        }
+        .quick-actions::-webkit-scrollbar { display: none; }
+
+        .action-btn {
+            white-space: nowrap;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            border-color: var(--text-main);
+            background: var(--panel-bg);
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 4px 4px 4px 16px;
+            transition: border-color 0.2s;
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--text-main);
+        }
+
+        .input-wrapper textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.9rem;
+            outline: none;
+            resize: none;
+            height: 36px;
+            padding-top: 8px;
+            line-height: 1.3;
+        }
+
+        .send-btn {
+            background-color: var(--text-main);
+            color: var(--panel-bg);
+            border: none;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .send-btn:hover { opacity: 0.9; }
+        .send-btn:disabled { background-color: var(--border-color); cursor: not-allowed; }
+
+        /* Loader */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 6px 8px;
+        }
+        .dot {
+            width: 5px;
+            height: 5px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        #toast-container {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--panel-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 10px 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: auto;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast-icon {
+            color: var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <span class="logo-icon"></span>
+            InsightLLM AI
+        </div>
+        <div class="header-controls">
+            <div class="api-input-container">
+                <div class="status-indicator" id="api-status" title="System Engine Ready"></div>
+                <input type="password" id="api-key-input" placeholder="Gemini API Key (Optional fallback)">
+            </div>
+            <button class="icon-btn" id="theme-toggle" title="Toggle Dark Mode">🌙</button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        
+        <!-- Left Panel: Documents -->
+        <div class="panel col-left">
+            <div class="panel-header">
+                <span>Knowledge Base</span>
+                <span id="doc-count" style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">0 files</span>
+            </div>
+            <label class="upload-area">
+                <div class="upload-icon">📄</div>
+                <div style="font-size: 0.85rem; font-weight: 500; margin-bottom: 2px;">Upload Document</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted);">PDF or DOCX files</div>
+                <input type="file" id="file-upload" accept=".pdf,.docx" multiple>
+            </label>
+            <div class="doc-list" id="doc-list">
+                <!-- Document items will be injected here -->
+                <div class="empty-state" style="padding-top: 40px;" id="doc-empty-state">
+                    No documents uploaded.<br><br>Upload reference files to establish intelligence context.
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Panel: Viewer / Dashboard -->
+        <div class="col-center">
+            <div class="center-tabs">
+                <div class="tab active" data-target="tab-pdf">📄 PDF Viewer</div>
+                <div class="tab" data-target="tab-dash">📊 Insight Dashboard</div>
+            </div>
+            
+            <div class="tab-content active" id="tab-pdf">
+                <div class="empty-state" id="pdf-empty-state">
+                    <h3>Select a document</h3>
+                    <p style="margin-top: 6px; font-size: 0.85rem;">Upload and click a document from the Knowledge Base to view it here.</p>
+                </div>
+                <iframe id="pdf-frame" src=""></iframe>
+                <div id="html-viewer"></div>
+            </div>
+
+            <div class="tab-content" id="tab-dash">
+                <div class="dashboard-content">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                        <h2>Workspace Intelligence Dashboard</h2>
+                        <button class="btn-primary" id="btn-generate-dash" style="background: var(--text-main); color: var(--panel-bg); border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 500;">Generate Insights</button>
+                    </div>
+                    
+                    <div id="dash-loader" style="display: none; text-align: center; padding: 40px; color: var(--text-muted);">
+                        <div class="typing-indicator" style="justify-content: center; margin-bottom: 16px;">
+                            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                        </div>
+                        Analyzing selected documents via system engine...
+                    </div>
+
+                    <div id="dash-content" style="display: none;">
+                        <div class="kpi-grid" id="dash-kpis">
+                            <!-- KPIs injected here -->
+                        </div>
+                        <div class="insight-section">
+                            <h3>📈 Key Market Trends</h3>
+                            <ul id="dash-trends" style="padding-left: 20px; font-size: 0.85rem; color: var(--text-muted);"></ul>
+                        </div>
+                        <div class="insight-section">
+                            <h3>⚠️ Strategic Risks Detected</h3>
+                            <ul id="dash-risks" style="padding-left: 20px; font-size: 0.85rem; color: var(--text-muted);"></ul>
+                        </div>
+                    </div>
+                    
+                    <div id="dash-empty" class="empty-state" style="height: auto; margin-top: 40px;">
+                        Click "Generate Insights" to run the Executive Agent across your selected documents.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Chatbot -->
+        <div class="panel col-right">
+            <div class="panel-header">
+                <span>Intelligence Assistant</span>
+                <button class="icon-btn" id="btn-clear-chat" style="width: 26px; height: 26px; font-size: 11px;" title="Clear Chat">🗑️</button>
+            </div>
+            
+            <div class="chat-container" id="chat-container">
+                <div class="message bot">
+                    <div class="agent-badges">
+                        <span class="agent-badge">System Ready</span>
+                    </div>
+                    <div class="msg-bubble">
+                        Hello! I am <strong>InsightLLM</strong>, your Agentic Business Intelligence Workspace.<br><br>
+                        Provide an API key if you have one (or leave it blank to use the secure platform default), upload reference documents, and ask any business intelligence questions.
+                    </div>
+                </div>
+            </div>
+
+            <!-- -->
+            <div class="chat-input-area">
+                <div class="quick-actions" id="quick-actions">
+                    <button class="action-btn" data-prompt="Synthesize a comprehensive Executive Summary outlining main priorities and operational goals.">Executive Summary</button>
+                    <button class="action-btn" data-prompt="Conduct a SWOT Analysis evaluating the internal strengths/weaknesses and external opportunities/threats.">SWOT Analysis</button>
+                    <button class="action-btn" data-prompt="Identify high-value development and market expansion opportunities.">Opportunity Finder</button>
+                    <button class="action-btn" data-prompt="Compile all strategic, business, and competitive risks detected within these files.">Risk Analyzer</button>
+                </div>
+                <div class="input-wrapper">
+                    <textarea id="chat-input" placeholder="Ask a question or request an analysis..." rows="1"></textarea>
+                    <button class="send-btn" id="btn-send">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        const state = {
+            apiKey: '',
+            documents: [], // { id, name, file, url, textPages: [{page, text}], selected, status }
+            chatHistory: [],
+            theme: 'light',
+            isProcessing: false
+        };
+
+        const els = {
+            apiKeyInput: document.getElementById('api-key-input'),
+            apiStatus: document.getElementById('api-status'),
+            themeToggle: document.getElementById('theme-toggle'),
+            fileUpload: document.getElementById('file-upload'),
+            docList: document.getElementById('doc-list'),
+            docEmptyState: document.getElementById('doc-empty-state'),
+            docCount: document.getElementById('doc-count'),
+            tabs: document.querySelectorAll('.tab'),
+            tabContents: document.querySelectorAll('.tab-content'),
+            pdfFrame: document.getElementById('pdf-frame'),
+            htmlViewer: document.getElementById('html-viewer'),
+            pdfEmptyState: document.getElementById('pdf-empty-state'),
+            chatContainer: document.getElementById('chat-container'),
+            chatInput: document.getElementById('chat-input'),
+            btnSend: document.getElementById('btn-send'),
+            btnClear: document.getElementById('btn-clear-chat'),
+            quickActions: document.querySelectorAll('.action-btn'),
+            btnGenDash: document.getElementById('btn-generate-dash'),
+            dashLoader: document.getElementById('dash-loader'),
+            dashContent: document.getElementById('dash-content'),
+            dashEmpty: document.getElementById('dash-empty'),
+        };
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            
+            const icon = type === 'success' ? '⚡' : '⚠️';
+            toast.innerHTML = `
+                <span class="toast-icon">${icon}</span>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        els.apiKeyInput.addEventListener('input', (e) => {
+            state.apiKey = e.target.value.trim();
+            updateConnectionStatus();
+        });
+
+        els.themeToggle.addEventListener('click', () => {
+            state.theme = state.theme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', state.theme);
+            els.themeToggle.textContent = state.theme === 'light' ? '🌙' : '☀️';
+        });
+
+        els.fileUpload.addEventListener('change', handleFileUpload);
+
+        els.tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                els.tabs.forEach(t => t.classList.remove('active'));
+                els.tabContents.forEach(tc => tc.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.target).classList.add('active');
+            });
+        });
+
+        els.chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendChat();
+            }
+        });
+
+        els.btnSend.addEventListener('click', handleSendChat);
+        
+        els.btnClear.addEventListener('click', () => {
+            state.chatHistory = [];
+            els.chatContainer.innerHTML = '';
+            appendBotMessage("Workspace conversation history cleared.", ["System"]);
+        });
+
+        els.quickActions.forEach(btn => {
+            btn.addEventListener('click', () => {
+                els.chatInput.value = btn.dataset.prompt;
+                handleSendChat();
+            });
+        });
+
+        els.btnGenDash.addEventListener('click', generateDashboard);
+
+        function updateConnectionStatus() {
+            if (state.apiKey.length > 10) {
+                els.apiStatus.classList.add('connected');
+                els.apiStatus.title = "Custom Key Loaded";
+            } else {
+                els.apiStatus.classList.remove('connected');
+                els.apiStatus.title = "Platform Key Active";
+            }
+        }
+
+        async function handleFileUpload(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            els.docEmptyState.style.display = 'none';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const id = 'doc_' + Date.now() + '_' + i;
+                const ext = file.name.split('.').pop().toLowerCase();
+                const url = URL.createObjectURL(file);
+                
+                if (ext !== 'pdf' && ext !== 'docx') {
+                    showToast(`Unsupported format .${ext}`, "warning");
+                    continue;
+                }
+
+                const docObj = {
+                    id: id,
+                    name: file.name,
+                    file: file,
+                    ext: ext,
+                    url: url,
+                    textPages: [],
+                    htmlContent: '',
+                    selected: true,
+                    status: 'Extracting...'
+                };
+                
+                state.documents.push(docObj);
+                renderDocList();
+                
+                try {
+                    if (ext === 'pdf') {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                        const numPages = Math.min(pdf.numPages, 15); // Strict limit to protect token count
+                        
+                        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+                            const page = await pdf.getPage(pageNum);
+                            const textContent = await page.getTextContent();
+                            const pageText = textContent.items.map(item => item.str).join(' ');
+                            docObj.textPages.push({ page: pageNum, text: pageText });
+                        }
+                        docObj.status = 'Ready';
+                    } else if (ext === 'docx') {
+                        const arrayBuffer = await file.arrayBuffer();
+                        const rawTextResult = await mammoth.extractRawText({arrayBuffer: arrayBuffer});
+                        const fullText = rawTextResult.value;
+                        
+                        const chunkSize = 2000;
+                        for(let j=0; j < fullText.length; j += chunkSize) {
+                            docObj.textPages.push({ page: Math.floor(j/chunkSize)+1, text: fullText.substring(j, j+chunkSize) });
+                        }
+                        
+                        const arrayBufferViewer = await file.arrayBuffer();
+                        const htmlResult = await mammoth.convertToHtml({arrayBuffer: arrayBufferViewer});
+                        docObj.htmlContent = `<div style="font-family: var(--font-family); line-height: 1.6; max-width: 800px; margin: 0 auto; color: var(--text-main);">${htmlResult.value}</div>`;
+                        docObj.status = 'Ready';
+                    }
+                } catch (err) {
+                    console.error(err);
+                    docObj.status = 'Parsing Error';
+                    showToast(`Failed to parse ${file.name}`, "warning");
+                }
+                renderDocList();
+            }
+            els.fileUpload.value = '';
+        }
+
+        function renderDocList() {
+            els.docList.innerHTML = '';
+            els.docCount.textContent = `${state.documents.length} files`;
+
+            if (state.documents.length === 0) {
+                els.docEmptyState.style.display = 'flex';
+                els.pdfEmptyState.style.display = 'flex';
+                els.pdfFrame.style.display = 'none';
+                els.htmlViewer.style.display = 'none';
+                return;
+            }
+
+            state.documents.forEach(doc => {
+                const div = document.createElement('div');
+                div.className = 'doc-item';
+                div.onclick = (e) => {
+                    if (e.target.type !== 'checkbox' && e.target.tagName !== 'BUTTON') {
+                        document.querySelectorAll('.doc-item').forEach(d => d.classList.remove('active-view'));
+                        div.classList.add('active-view');
+                        els.pdfEmptyState.style.display = 'none';
+                        
+                        if (doc.ext === 'pdf') {
+                            els.htmlViewer.style.display = 'none';
+                            els.pdfFrame.style.display = 'block';
+                            els.pdfFrame.src = doc.url + "#toolbar=0";
+                        } else {
+                            els.pdfFrame.style.display = 'none';
+                            els.htmlViewer.style.display = 'block';
+                            els.htmlViewer.innerHTML = doc.htmlContent || `<div class="empty-state">No preview available. Text index compiled.</div>`;
+                        }
+                        
+                        els.tabs[0].click();
+                        els.tabs[0].textContent = doc.ext === 'pdf' ? '📄 PDF Viewer' : '📄 Doc Viewer';
+                    }
+                };
+
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'doc-checkbox';
+                cb.checked = doc.selected;
+                cb.title = "Include in Context";
+                cb.onchange = () => { doc.selected = cb.checked; };
+
+                const info = document.createElement('div');
+                info.className = 'doc-info';
+                info.innerHTML = `
+                    <div class="doc-name" title="${doc.name}">${doc.name}</div>
+                    <div class="doc-meta">${doc.status} • ${doc.textPages.length} pages</div>
+                `;
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'doc-delete';
+                delBtn.innerHTML = '✕';
+                delBtn.onclick = () => {
+                    state.documents = state.documents.filter(d => d.id !== doc.id);
+                    if(els.pdfFrame.src === doc.url + "#toolbar=0" || (doc.ext !== 'pdf' && div.classList.contains('active-view'))) {
+                        els.pdfFrame.style.display = 'none';
+                        els.htmlViewer.style.display = 'none';
+                        els.pdfEmptyState.style.display = 'flex';
+                        els.tabs[0].textContent = '📄 Viewer';
+                    }
+                    renderDocList();
+                };
+
+                div.appendChild(cb);
+                div.appendChild(info);
+                div.appendChild(delBtn);
+                els.docList.appendChild(div);
+            });
+        }
+
+        function getContextString() {
+            const selectedDocs = state.documents.filter(d => d.selected && d.status === 'Ready');
+            if (selectedDocs.length === 0) return "No documents are currently selected or uploaded.";
+
+            let context = "CONTEXT DOCUMENTS:\n\n";
+            let totalChars = 0;
+            const MAX_CONTEXT_CHARS = 8000; // Optimal payload density to resolve 530 limits
+            
+            for (const doc of selectedDocs) {
+                if (totalChars >= MAX_CONTEXT_CHARS) break;
+                context += `--- START: ${doc.name} ---\n`;
+                for (const p of doc.textPages) {
+                    const cleanText = p.text.substring(0, 1000);
+                    if (totalChars + cleanText.length > MAX_CONTEXT_CHARS) break;
+                    context += `[Page ${p.page}]: ${cleanText}\n`;
+                    totalChars += cleanText.length;
+                }
+                context += `--- END: ${doc.name} ---\n\n`;
+            }
+            return context;
+        }
+
+        const SYSTEM_PROMPT = `You are InsightLLM AI, a dedicated Notebook LLM and Strategic Business Analyst.
+Analyze the query utilizing the provided CONTEXT.
+
+MULTI-DOCUMENT REASONING:
+- Synthesize overarching insights across all context files.
+- Cite sources meticulously: [Source: DocumentName.pdf, Page X].
+
+AGENTIC GENERAL KNOWLEDGE FALLBACK:
+- If no documents are selected or if queries are general/strategic, answer with your deep Business Advisor intelligence. General knowledge does not require citations.
+
+AGENT WORKFLOW:
+Operate as a multi-agent system. Identify active agents inside a tag on the very first line: <agents>Document Analyst, Strategy Agent</agents>. Keep answers clean and actionable.`;
+
+        async function generateGeminiResponse(userText, isSystemAction = false) {
+            const apiKey = state.apiKey || ""; // Leave empty to automatically trigger Canvas platform key
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            
+            const contextText = getContextString();
+            const combinedPrompt = isSystemAction ? 
+                `${contextText}\n\nSYSTEM TASK: ${userText}` : 
+                `${contextText}\n\nUSER QUERY: ${userText}`;
+
+            // Cap conversation history to the last 4 turns to protect buffer overhead
+            const contents = state.chatHistory.map(msg => ({
+                role: msg.role === 'bot' ? 'model' : 'user',
+                parts: [{ text: msg.text }]
+            }));
+            
+            contents.push({
+                role: 'user',
+                parts: [{ text: combinedPrompt }]
+            });
+
+            const payload = {
+                systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                contents: contents,
+                generationConfig: { temperature: 0.15 }
+            };
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.status === 400 || response.status === 401 || response.status === 403) {
+                throw new Error("Invalid API Key configuration or request formatting issue.");
+            }
+            if (!response.ok) {
+                throw new Error(`Platform Engine busy (HTTP ${response.status}). Please try sending your message again.`);
+            }
+
+            const data = await response.json();
+            if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
+                throw new Error("Empty engine response payload.");
+            }
+
+            els.apiStatus.classList.add('connected');
+            return data.candidates[0].content.parts[0].text;
+        }
+
+        function parseMarkdownAndAgents(rawText) {
+            let text = rawText;
+            let agents = ["Strategy Agent"];
+            
+            const agentRegex = /<agents>(.*?)<\/agents>/i;
+            const match = text.match(agentRegex);
+            if (match) {
+                agents = match[1].split(',').map(s => s.trim());
+                text = text.replace(agentRegex, '').trim();
+            }
+
+            let html = text
+                .replace(/^### (.*$)/gim, '<h4>$1</h4>')
+                .replace(/^## (.*$)/gim, '<h3>$1</h3>')
+                .replace(/^# (.*$)/gim, '<h2>$1</h2>')
+                .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/gim, '<em>$1</em>')
+                .replace(/\[Source: (.*?), Page (\d+)\]/gim, '<span class="citation" onclick="showToast(\'Verifying: $1 - Page $2\')">📄 $1 (p. $2)</span>')
+                .replace(/\n\n/gim, '<br><br>')
+                .replace(/\n/gim, '<br>');
+
+            html = html.replace(/<br>- (.*?)(?=<br>|$)/gim, '<li>$1</li>');
+            html = html.replace(/(<li>.*?<\/li>)/gims, '<ul>$1</ul>');
+            html = html.replace(/<\/ul><ul>/gim, '');
+
+            return { html, agents };
+        }
+
+        function appendUserMessage(text) {
+            const div = document.createElement('div');
+            div.className = 'message user';
+            div.innerHTML = `<div class="msg-bubble">${text.replace(/\n/g, '<br>')}</div>`;
+            els.chatContainer.appendChild(div);
+            scrollToBottom();
+            state.chatHistory.push({ role: 'user', text: text });
+        }
+
+        function appendBotMessage(htmlContent, agents = []) {
+            const div = document.createElement('div');
+            div.className = 'message bot';
+            
+            let badgesHtml = '';
+            agents.forEach(a => {
+                badgesHtml += `<span class="agent-badge">${a}</span>`;
+            });
+
+            div.innerHTML = `
+                <div class="agent-badges">${badgesHtml}</div>
+                <div class="msg-bubble">${htmlContent}</div>
+            `;
+            els.chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            els.chatContainer.scrollTop = els.chatContainer.scrollHeight;
+        }
+
+        function showTyping() {
+            const div = document.createElement('div');
+            div.className = 'message bot typing-indicator-wrap';
+            div.id = 'typing-indicator';
+            div.innerHTML = `
+                <div class="agent-badges"><span class="agent-badge">Routing...</span></div>
+                <div class="msg-bubble" style="padding: 10px;">
+                    <div class="typing-indicator">
+                        <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                    </div>
+                </div>
+            `;
+            els.chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function removeTyping() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }
+
+        async function handleSendChat() {
+            const text = els.chatInput.value.trim();
+            if (!text || state.isProcessing) return;
+
+            els.chatInput.value = '';
+            els.chatInput.style.height = '36px';
+            appendUserMessage(text);
+            
+            state.isProcessing = true;
+            els.btnSend.disabled = true;
+            showTyping();
+
+            try {
+                const responseText = await generateGeminiResponse(text);
+                removeTyping();
+                
+                const { html, agents } = parseMarkdownAndAgents(responseText);
+                appendBotMessage(html, agents);
+                state.chatHistory.push({ role: 'bot', text: responseText });
+
+            } catch (err) {
+                removeTyping();
+                appendBotMessage(`<span style="color: var(--danger);">${err.message}</span>`, ["Alert"]);
+                showToast("Connection issue occurred.", "warning");
+            } finally {
+                state.isProcessing = false;
+                els.btnSend.disabled = false;
+            }
+        }
+
+        async function generateDashboard() {
+            const selectedDocs = state.documents.filter(d => d.selected && d.status === 'Ready');
+            if (selectedDocs.length === 0) {
+                showToast("Select at least one document to analyze.", "warning");
+                return;
+            }
+
+            els.dashEmpty.style.display = 'none';
+            els.dashContent.style.display = 'none';
+            els.dashLoader.style.display = 'block';
+
+            const prompt = `Analyze the provided context documents. Act as the Executive Agent.
+Extract exactly the following in valid JSON format ONLY, no markdown wrapping, no extra text:
+{
+    "kpis": [
+        {"title": "Metric Name", "value": "Value"}
+    ],
+    "trends": [ "Trend 1", "Trend 2", "Trend 3" ],
+    "risks": [ "Risk 1", "Risk 2", "Risk 3" ]
+}`;
+
+            const apiKey = state.apiKey || "";
+            const contextText = getContextString();
+            const payload = {
+                contents: [{ role: 'user', parts: [{ text: `${contextText}\n\n${prompt}` }] }],
+                generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+            };
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error("Connection timed out. Retrying recommended.");
+                const result = await response.json();
+                
+                let cleanText = result.candidates[0].content.parts[0].text.trim();
+                if (cleanText.startsWith("```")) {
+                    cleanText = cleanText.replace(/^```[a-zA-Z]*\n/, "").replace(/\n```$/, "").trim();
+                }
+
+                const insights = JSON.parse(cleanText);
+
+                const kpiGrid = document.getElementById('dash-kpis');
+                kpiGrid.innerHTML = '';
+                insights.kpis.forEach(kpi => {
+                    kpiGrid.innerHTML += `
+                        <div class="kpi-card">
+                            <div class="kpi-title">${kpi.title}</div>
+                            <div class="kpi-value">${kpi.value}</div>
+                        </div>`;
+                });
+
+                const trendsList = document.getElementById('dash-trends');
+                trendsList.innerHTML = '';
+                insights.trends.forEach(t => trendsList.innerHTML += `<li style="margin-bottom:8px;">${t}</li>`);
+
+                const risksList = document.getElementById('dash-risks');
+                risksList.innerHTML = '';
+                insights.risks.forEach(r => risksList.innerHTML += `<li style="margin-bottom:8px;">${r}</li>`);
+
+                els.dashLoader.style.display = 'none';
+                els.dashContent.style.display = 'block';
+                showToast("Insights dashboard compiled successfully.", "success");
+
+            } catch (err) {
+                console.error(err);
+                els.dashLoader.style.display = 'none';
+                els.dashEmpty.style.display = 'block';
+                els.dashEmpty.innerHTML = `<span style="color: var(--danger);">Dashboard Compilation Failed. ${err.message}</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
