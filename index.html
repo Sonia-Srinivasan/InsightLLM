@@ -857,7 +857,7 @@ Instructions:
                 contents: [...state.chatHistory.slice(-6), { role: "user", parts: [{ text: documentContext ? userQuery + "\n\n" + documentContext : userQuery }] }],
                 generationConfig: {
                     temperature: 0.3, // Balanced for deterministic extraction and creative general knowledge
-                    maxOutputTokens: 2048 // Increased safely to prevent truncation, prompt handles conciseness
+                    maxOutputTokens: 8192 // Increased to maximum to prevent one-click actions from being cut off
                 }
             };
 
