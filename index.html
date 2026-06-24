@@ -197,10 +197,10 @@
         }
         .tab-btn:hover { color: var(--text-main); background: var(--border-light); }
         .tab-btn.active { 
-            color: #ffffff; background: var(--text-main); 
+            color: var(--bg-app); background: var(--text-main); 
             box-shadow: var(--shadow-sm);
         }
-        [data-theme="dark"] .tab-btn.active { color: #ffffff; background: var(--text-main); }
+        [data-theme="dark"] .tab-btn.active { color: #111118; background: var(--text-main); }
         
         .center-content { flex: 1; overflow-y: auto; padding: 32px; display: none; }
         .center-content::-webkit-scrollbar { width: 8px; }
@@ -811,68 +811,26 @@
             appendMessage('user', message);
             state.isProcessing = true;
 
-            // Create loading/agent activity container
+            // Immediate UI feedback with animated loading dots
             const botMsgContainer = document.createElement('div');
             botMsgContainer.className = 'message bot';
             ui.chatMessages.appendChild(botMsgContainer);
+            botMsgContainer.innerHTML = '<div class="msg-bubble" style="opacity:0.7"><div class="loading-dots"><span></span><span></span><span></span></div></div>';
 
-            // Determine Agent Workflow logically based on text
-            const lowerMsg = message.toLowerCase();
-            const agents = [];
-            const hasDocs = state.documents.some(d => d.selected);
-
-            if (hasDocs) {
-                agents.push({ name: "Document Analyst", action: "Scanning document context..." });
+            try {
+                const responseText = await callGeminiAPI(message);
+                botMsgContainer.innerHTML = `<div class="msg-bubble">${marked.parse(responseText)}</div>`;
+                
+                state.chatHistory.push({ role: "user", parts: [{ text: message }] });
+                state.chatHistory.push({ role: "model", parts: [{ text: responseText }] });
+                
+            } catch (err) {
+                console.error(err);
+                botMsgContainer.innerHTML = `<div class="msg-bubble" style="color:var(--danger)">Error: ${err.message}</div>`;
+            } finally {
+                state.isProcessing = false;
+                ui.chatMessages.scrollTop = ui.chatMessages.scrollHeight;
             }
-            
-            if (lowerMsg.includes("market") || lowerMsg.includes("trend") || lowerMsg.includes("opportunity")) {
-                agents.push({ name: "Market Intelligence", action: "Analyzing market indicators..." });
-            }
-            if (lowerMsg.includes("competitor") || lowerMsg.includes("rival") || lowerMsg.includes("swot")) {
-                agents.push({ name: "Competitor Intelligence", action: "Evaluating competitive landscape..." });
-            }
-            if (lowerMsg.includes("customer") || lowerMsg.includes("sentiment") || lowerMsg.includes("feedback")) {
-                agents.push({ name: "Consumer Insights", action: "Synthesizing feedback..." });
-            }
-            if (lowerMsg.includes("recommend") || lowerMsg.includes("strategy") || lowerMsg.includes("action")) {
-                agents.push({ name: "Strategy Agent", action: "Formulating recommendations..." });
-            }
-            if (lowerMsg.includes("summary") || lowerMsg.includes("executive")) {
-                agents.push({ name: "Executive Agent", action: "Drafting leadership report..." });
-            }
-            if (agents.length === 1 && hasDocs) {
-                agents.push({ name: "InsightLLM Synthesis", action: "Synthesizing answer..." });
-            } else if (!hasDocs) {
-                agents.push({ name: "General Knowledge Agent", action: "Querying base knowledge..." });
-            }
-
-            const workflowDuration = showAgentActivity(agents, botMsgContainer);
-
-            // Wait for visual workflow to "complete" before making the API call 
-            // (or do it concurrently but wait to show result)
-            setTimeout(async () => {
-                botMsgContainer.innerHTML = ''; // Clear timeline
-                const bubble = document.createElement('div');
-                bubble.className = 'msg-bubble';
-                bubble.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-                botMsgContainer.appendChild(bubble);
-
-                try {
-                    const responseText = await callGeminiAPI(message);
-                    bubble.innerHTML = marked.parse(responseText);
-                    
-                    // Save history
-                    state.chatHistory.push({ role: "user", parts: [{ text: message }] });
-                    state.chatHistory.push({ role: "model", parts: [{ text: responseText }] });
-                    
-                } catch (err) {
-                    console.error(err);
-                    bubble.innerHTML = `<span style="color:var(--danger)">Error: ${err.message}</span>`;
-                } finally {
-                    state.isProcessing = false;
-                    ui.chatMessages.scrollTop = ui.chatMessages.scrollHeight;
-                }
-            }, workflowDuration + 500);
         }
 
         async function callGeminiAPI(userQuery) {
@@ -880,40 +838,26 @@
             let documentContext = "";
 
             if (selectedDocs.length > 0) {
-                documentContext = "BACKGROUND DOCUMENTS PROVIDED BY USER:\n\n";
+                documentContext = "Context from uploaded documents:\n\n";
                 selectedDocs.forEach(doc => {
-                    documentContext += `<document name="${doc.name}">\n`;
-                    // To prevent massive token overload, limit pages or trim text if necessary, 
-                    // but Gemini 2.5 Flash has 1M context. We'll send it entirely for prototype.
-                    doc.pages.forEach(p => {
-                        documentContext += `  <page number="${p.pageNum}">\n${p.text}\n  </page>\n`;
-                    });
-                    documentContext += `</document>\n\n`;
+                    // Include up to 5 pages per document for speed, cleanly formatted
+                    documentContext += `<doc name="${doc.name}">\n${doc.pages.slice(0, 5).map(p => `[Page ${p.pageNum}]: ${p.text}`).join('\n')}\n</doc>\n`;
                 });
             }
 
-            const systemInstruction = `You are InsightLLM AI, an expert Agentic Business Intelligence team comprised of top-tier analysts.
-Role & Tone: Professional, analytical, strategic, and concise. Act like an elite management consulting team.
-
-Directives:
-1. Document Intelligence: Answer questions based primarily on the provided background documents.
-2. Mandatory Citations: If you state a fact, data point, or insight derived from the documents, you MUST append a citation in this exact format: [Source: Document Name Page X]. 
-   Example: "Sales dropped by 15% [Source: Q3_Report.pdf Page 4]." Do NOT use standard markdown link formats for citations.
-3. Multi-Agent Persona: Structure complex answers logically (e.g., categorizing by Key Findings, Market Trends, Strategic Recommendations).
-4. General Knowledge: If the user asks a general question not covered by documents, use your general knowledge but clearly state that it is a general insight, not from the documents.
-5. Formatting: Use Markdown heavily. Use bolding for emphasis, bullet points for readability, and headers to structure the response.
-
-${documentContext}`;
-
-            // Build history payload (keeping last 6 turns to avoid bloat)
-            const history = state.chatHistory.slice(-6);
-            const contents = [...history, { role: "user", parts: [{ text: userQuery }] }];
+            const systemPrompt = `You are InsightLLM, an intelligent business agent.
+Instructions:
+1. DOCUMENT QUERIES: If the user asks about the provided documents, use the context. Cite sources as [Source: Document Name Page X].
+2. GENERAL QUERIES: If the user asks general questions (coding, math, advice, trivia), seamlessly use your broad AI knowledge to answer them as a helpful agent.
+3. FORMATTING: Be exceptionally concise and lightweight for fast reading, but your answers MUST be complete and fully formulated (do not cut off halfway). Use bullet points where possible to save space.`;
 
             const payload = {
-                systemInstruction: { parts: [{ text: systemInstruction }] },
-                contents: contents,
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                // Append context to user query if documents exist
+                contents: [...state.chatHistory.slice(-6), { role: "user", parts: [{ text: documentContext ? userQuery + "\n\n" + documentContext : userQuery }] }],
                 generationConfig: {
-                    temperature: 0.2, // Low temperature for more analytical/factual responses
+                    temperature: 0.3, // Balanced for deterministic extraction and creative general knowledge
+                    maxOutputTokens: 2048 // Increased safely to prevent truncation, prompt handles conciseness
                 }
             };
 
@@ -924,11 +868,7 @@ ${documentContext}`;
             });
 
             const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error?.message || "Failed to communicate with Gemini API.");
-            }
-
+            if (!response.ok) throw new Error(data.error?.message || "API error");
             return data.candidates[0].content.parts[0].text;
         }
 
