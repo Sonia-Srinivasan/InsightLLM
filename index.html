@@ -879,7 +879,7 @@
             let documentContext = "";
 
             if (selectedDocs.length > 0) {
-                documentContext = "Context from uploaded documents:\n\n";
+                documentContext = `CURRENTLY SELECTED DOCUMENTS FOR THIS QUERY (${selectedDocs.length}):\n\n`;
                 selectedDocs.forEach(doc => {
                     documentContext += `<doc name="${doc.name}">\n${doc.pages.map(p => `[Page ${p.pageNum}]: ${p.text}`).join('\n')}\n</doc>\n`;
                 });
@@ -887,15 +887,18 @@
 
             const systemPrompt = `You are InsightLLM, an intelligent, highly capable business agent and general AI assistant powered by Gemini 2.5.
 Instructions:
-1. AGENTIC CAPABILITY (GENERAL QUERIES): You are not limited to the uploaded documents. If the user asks a general question, requests coding help, asks for advice, or inquires about a topic NOT found in the documents (or if no documents are selected), you MUST answer fully and accurately using your broad internal knowledge. Do not apologize or say you are limited to the documents.
-2. DOCUMENT QUERIES: If the question specifically pertains to the uploaded documents, use the provided context. When extracting facts from the documents, YOU MUST append a citation using this exact format: [Source: Document Name Page X]. This format is critical for UI navigation.
-3. FORMATTING: Be extremely concise and fast. Use bullet points heavily. Your answer must be complete and not cut off.`;
+1. STRICT DOCUMENT SCOPE: If the user asks about "the documents", "reports", or the provided context, YOU MUST ONLY analyze and reference the documents explicitly listed in the "CURRENTLY SELECTED DOCUMENTS" section of the current prompt. Do NOT reference or summarize documents from previous conversation turns if they are no longer provided in the current context. If only one document is provided, state your findings based ONLY on that single document. Do not hallucinate unselected documents.
+2. AGENTIC CAPABILITY (GENERAL QUERIES): You are not limited to the uploaded documents. If the user asks a general question, requests coding help, asks for advice, or inquires about a topic NOT found in the documents (or if no documents are selected), you MUST answer fully and accurately using your broad internal knowledge. Do not apologize or say you are limited to the documents.
+3. CITATIONS: When extracting facts from the documents, YOU MUST append a citation using this exact format: [Source: Document Name Page X]. This format is critical for UI navigation.
+4. FORMATTING: Be extremely concise and fast. Use bullet points heavily. Your answer must be complete and not cut off.`;
+
+            const finalUserText = documentContext ? `${userQuery}\n\n--- BACKGROUND CONTEXT ---\n${documentContext}` : userQuery;
 
             const payload = {
                 systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: [...state.chatHistory.slice(-4), { role: "user", parts: [{ text: documentContext ? userQuery + "\n\n" + documentContext : userQuery }] }],
+                contents: [...state.chatHistory.slice(-4), { role: "user", parts: [{ text: finalUserText }] }],
                 generationConfig: {
-                    temperature: 0.3,
+                    temperature: 0.1,
                     maxOutputTokens: 8192
                 }
             };
