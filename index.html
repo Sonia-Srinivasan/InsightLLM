@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>InsightLLM AI — Agentic Business Intelligence</title>
+    <title>InsightLM — Agentic Business Intelligence</title>
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Libraries -->
@@ -379,7 +379,7 @@
     <header>
         <div class="logo-area">
             <svg class="logo-icon" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            InsightLLM AI
+            InsightLM
         </div>
         <div class="nav-controls">
             <div class="api-input-wrapper">
@@ -481,7 +481,7 @@
             <div class="panel-header">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div style="width:8px; height:8px; border-radius:50%; background:var(--primary);"></div>
-                    InsightLLM Assistant
+                    InsightLM Assistant
                 </div>
                 <button class="icon-btn" onclick="clearChat()" title="Clear Chat"><svg viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
             </div>
@@ -489,7 +489,7 @@
             <div class="chat-messages" id="chat-messages">
                 <div class="message bot">
                     <div class="msg-bubble">
-                        <p>Hello. I am <strong>InsightLLM AI</strong>, your agentic business intelligence team.</p>
+                        <p>Hello. I am <strong>InsightLM</strong>, your agentic business intelligence team.</p>
                         <p>Upload your reports and presentations, select the ones you want to analyze, and ask me questions or generate reports.</p>
                     </div>
                 </div>
@@ -885,7 +885,7 @@
                 });
             }
 
-            const systemPrompt = `You are InsightLLM, an intelligent, highly capable business agent and general AI assistant powered by Gemini 2.5.
+            const systemPrompt = `You are InsightLM, an intelligent, highly capable business agent and general AI assistant powered by Gemini 2.5.
 Instructions:
 1. STRICT DOCUMENT SCOPE: If the user asks about "the documents", "reports", or the provided context, YOU MUST ONLY analyze and reference the documents explicitly listed in the "CURRENTLY SELECTED DOCUMENTS" section of the current prompt. Do NOT reference or summarize documents from previous conversation turns if they are no longer provided in the current context. If only one document is provided, state your findings based ONLY on that single document. Do not hallucinate unselected documents.
 2. AGENTIC CAPABILITY (GENERAL QUERIES): You are not limited to the uploaded documents. If the user asks a general question, requests coding help, asks for advice, or inquires about a topic NOT found in the documents (or if no documents are selected), you MUST answer fully and accurately using your broad internal knowledge. Do not apologize or say you are limited to the documents.
